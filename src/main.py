@@ -13,8 +13,22 @@ from src.config_loader import load_config
 def open_browser_window(url: str) -> None:
     """Öffnet die App in einem Chromium-Fenster (typisch auf Raspberry Pi OS)."""
     candidates = [
-        ["chromium-browser", f"--app={url}", "--start-fullscreen", "--disable-infobars"],
-        ["chromium", f"--app={url}", "--start-fullscreen", "--disable-infobars"],
+        [
+            "chromium-browser",
+            f"--app={url}",
+            "--start-fullscreen",
+            "--disable-infobars",
+            "--password-store=basic",
+            "--no-first-run",
+        ],
+        [
+            "chromium",
+            f"--app={url}",
+            "--start-fullscreen",
+            "--disable-infobars",
+            "--password-store=basic",
+            "--no-first-run",
+        ],
         ["google-chrome", f"--app={url}", "--start-fullscreen"],
     ]
 

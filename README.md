@@ -73,6 +73,14 @@ Fehler: Ihre lokalen Änderungen in den folgenden Dateien würden durch den Merg
 ```
 → Dann die Befehle oben der Reihe nach ausführen.
 
+## Schlüsselbund-Passwort beim Start?
+
+Nach einem **Pi-Neustart** kann Chromium nach dem **Schlüsselbund-Passwort** fragen. Das ist der **GNOME-Schlüsselbund** — gedacht für gespeicherte Browser-Passwörter.
+
+**Reise-Navi braucht das nicht.** Ab Version mit `--password-store=basic` sollte die Abfrage weg sein.
+
+Falls sie noch erscheint, nach `git pull` einmal manuell in `scripts/launch.sh` prüfen, dass `--password-store=basic` beim Chromium-Start gesetzt ist.
+
 ## Bedienung
 
 | Button | Funktion |

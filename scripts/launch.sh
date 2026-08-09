@@ -33,7 +33,13 @@ done
 
 for cmd in chromium-browser chromium google-chrome; do
   if command -v "$cmd" >/dev/null 2>&1; then
-    "$cmd" --app="$URL" --start-fullscreen --disable-infobars &
+    "$cmd" \
+      --app="$URL" \
+      --start-fullscreen \
+      --disable-infobars \
+      --password-store=basic \
+      --no-first-run \
+      &
     CHROMIUM_PID=$!
     wait "$SERVER_PID"
     exit 0
