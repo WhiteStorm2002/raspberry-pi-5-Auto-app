@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Reise-Navi</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <div class="speed-card current-speed" id="current-speed-card">
+        <span class="label">Tempo</span>
+        <span class="value" id="current-speed">—</span>
+        <span class="unit">km/h</span>
+      </div>
+
+      <div class="speed-card limit-speed">
+        <span class="label">Limit</span>
+        <span class="value" id="speed-limit">—</span>
+        <span class="unit">km/h</span>
+      </div>
+
+      <div class="widget-bar">
+        <div class="widget"><span class="widget-label">Uhr</span><span id="clock">--:--</span></div>
+        <div class="widget"><span class="widget-label">Wetter</span><span id="weather">—°C</span></div>
+        <div class="widget nav-only hidden" id="eta-widget">
+          <span class="widget-label">Ankunft</span><span id="eta">—</span>
+        </div>
+      </div>
+
+      <div class="status-pill" id="gps-status">
+        <span class="dot"></span>
+        <span id="gps-status-text">GPS …</span>
+      </div>
+    </header>
+
+    <div class="traffic-banner hidden" id="traffic-banner"></div>
+    <div class="nav-banner hidden" id="nav-banner">
+      <span class="nav-icon">➤</span>
+      <div>
+        <div class="nav-instruction" id="nav-instruction">—</div>
+        <div class="nav-meta" id="nav-meta">—</div>
+      </div>
+    </div>
+
+    <div class="main-area">
+      <main class="map-panel">
+        <div id="map"></div>
+      </main>
+
+      <aside class="side-panel" id="side-panel">
+        <button class="btn btn-primary" id="btn-destination">🎯 Ziel eingeben</button>
+        <button class="btn" id="btn-favorites">⭐ Favoriten</button>
+        <button class="btn" id="btn-save-fav">📍 Hier speichern</button>
+        <button class="btn" id="btn-fuel">⛽ Tankstellen</button>
+        <button class="btn" id="btn-rest">🅿️ Rastplätze</button>
+        <button class="btn btn-danger hidden" id="btn-stop-nav">✕ Navigation beenden</button>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Modal: Ziel -->
+  <div class="modal hidden" id="modal-destination">
+    <div class="modal-content">
+      <h2>Ziel eingeben</h2>
+      <input type="text" id="dest-input" class="input-large" placeholder="Adresse oder Ort …" autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn" id="btn-dest-cancel">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-dest-search">Route berechnen</button>
+      </div>
+      <p class="hint" id="dest-status"></p>
+    </div>
+  </div>
+
+  <!-- Modal: Favoriten -->
+  <div class="modal hidden" id="modal-favorites">
+    <div class="modal-content modal-wide">
+      <h2>Favoriten</h2>
+      <div class="fav-list" id="fav-list"></div>
+      <div class="modal-actions">
+        <button class="btn" id="btn-fav-close">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Speichern -->
+  <div class="modal hidden" id="modal-save">
+    <div class="modal-content">
+      <h2>Ort speichern</h2>
+      <input type="text" id="save-name" class="input-large" placeholder="Name, z.B. Hotel">
+      <select id="save-category" class="input-large">
+        <option value="hotel">Unterkunft</option>
+        <option value="shop">Einkaufen</option>
+        <option value="park">Parkplatz</option>
+        <option value="other">Sonstiges</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn" id="btn-save-cancel">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-save-confirm">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+server:
+  host: "127.0.0.1"
+  port: 8765
+
+gps:
+  source: "gpsd"
+  device: "/dev/ttyACM0"
+  baudrate: 9600
+  simulate: false
+
+maps:
+  tile_provider: "carto_dark"
+  default_zoom: 15
+  default_lat: 48.137154
+  default_lon: 11.576124
+
+routing:
+  osrm_url: "https://router.project-osrm.org"
+
+weather:
+  cache_seconds: 600
+
+poi:
+  radius_m: 8000
+  cache_seconds: 120
+
+traffic:
+  radius_m: 15000
+  cache_seconds: 90
+
+favorites:
+  file: "data/favorites.json"
+
+speed_warning:
+  tolerance_kmh: 5
+
+ui:
+  accent_color: "#0044cc"
+  border_radius: 16
+  window_title: "Reise-Navi"
+
+speed_limit:
+  cache_seconds: 30
+  query_radius_m: 50

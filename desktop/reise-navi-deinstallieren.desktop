@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Reise-Navi deinstallieren
+Comment=Entfernt Reise-Navi vom System (nicht Desktop)
+Exec=REPO_PATH/scripts/uninstall-pi.sh
+Icon=REPO_PATH/assets/icon-uninstall.svg
+Terminal=true
+Categories=Utility;
+StartupNotify=true

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Reise-Navi
+Comment=Navigation mit Geschwindigkeit und Tempolimit
+Exec=REPO_PATH/scripts/launch.sh
+Icon=REPO_PATH/assets/icon.svg
+Terminal=false
+Categories=Utility;Navigation;
+StartupNotify=true
