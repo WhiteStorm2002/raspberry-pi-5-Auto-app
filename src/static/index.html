@@ -38,8 +38,9 @@
 
     <div class="traffic-banner hidden" id="traffic-banner"></div>
     <div class="nav-banner hidden" id="nav-banner">
-      <span class="nav-icon">➤</span>
-      <div>
+      <span class="nav-icon" id="nav-icon">➤</span>
+      <div class="nav-text">
+        <div class="nav-distance" id="nav-distance">—</div>
         <div class="nav-instruction" id="nav-instruction">—</div>
         <div class="nav-meta" id="nav-meta">—</div>
       </div>
@@ -68,8 +69,9 @@
       <input type="text" id="dest-input" class="input-large" placeholder="Adresse oder Ort …" autocomplete="off">
       <div class="modal-actions">
         <button class="btn" id="btn-dest-cancel">Abbrechen</button>
-        <button class="btn btn-primary" id="btn-dest-search">Route berechnen</button>
+        <button class="btn btn-primary" id="btn-dest-search">Navigation starten</button>
       </div>
+      <p class="hint">Die Navigation startet sofort – kein extra „Start“ nötig.</p>
       <p class="hint" id="dest-status"></p>
     </div>
   </div>

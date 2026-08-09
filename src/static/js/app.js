@@ -196,7 +196,7 @@ async function startNavigation(dest) {
   $("eta-widget").classList.remove("hidden");
   $("btn-stop-nav").classList.remove("hidden");
   $("nav-banner").classList.remove("hidden");
-  updateNavInstruction();
+  updateNavInstruction(lastGps.latitude, lastGps.longitude);
 }
 
 async function startNavigationTo(lat, lon, name) {
@@ -226,18 +226,86 @@ function updateNavigation(pos) {
     else break;
   }
   navState.stepIndex = idx;
-  updateNavInstruction();
+  updateNavInstruction(lat, lon);
 
   if (idx === steps.length - 1 && distM(lat, lon, navState.destination.lat, navState.destination.lon) < 30) {
-    $("nav-instruction").textContent = "🎉 Ziel erreicht!";
+    $("nav-distance").textContent = "🎉 Ziel erreicht!";
+    $("nav-instruction").textContent = navState.destination.name || "Du bist angekommen.";
+    $("nav-icon").textContent = "🏁";
   }
 }
 
-function updateNavInstruction() {
+function getUpcomingStep(steps, idx) {
+  for (let i = idx; i < steps.length; i++) {
+    if (steps[i].type === "depart") continue;
+    return { step: steps[i], index: i };
+  }
+  return { step: steps[steps.length - 1], index: steps.length - 1 };
+}
+
+function stepDirection(step) {
+  if (!step) return "weiterfahren";
+  if (step.type === "arrive") return "am Ziel ankommen";
+
+  const mod = step.modifier || "";
+  const map = {
+    left: "links abbiegen",
+    right: "rechts abbiegen",
+    straight: "geradeaus fahren",
+    "slight left": "leicht links halten",
+    "slight right": "leicht rechts halten",
+    "sharp left": "scharf links abbiegen",
+    "sharp right": "scharf rechts abbiegen",
+    uturn: "wenden",
+  };
+  if (map[mod]) return map[mod];
+
+  if (step.type === "roundabout" || step.type === "rotary") return "in den Kreisverkehr fahren";
+  if (step.type === "off ramp") return "Ausfahrt nehmen";
+  if (step.type === "on ramp") return "Auffahrt nehmen";
+  if (step.type === "merge") return "einfädeln";
+  if (step.type === "fork") return "an der Gabelung halten";
+  if (step.type === "continue" || step.type === "new name") return "geradeaus fahren";
+
+  return (step.instruction || "weiterfahren").toLowerCase();
+}
+
+function stepIcon(step) {
+  if (!step) return "➤";
+  if (step.type === "arrive") return "🏁";
+  const mod = step.modifier || "";
+  if (mod.includes("left")) return "↰";
+  if (mod.includes("right")) return "↱";
+  if (step.type === "roundabout" || step.type === "rotary") return "⟳";
+  if (mod === "uturn") return "↩";
+  return "➤";
+}
+
+function formatDistanceLabel(meters) {
+  if (meters < 80) return "Jetzt";
+  if (meters < 1000) {
+    const rounded = Math.round(meters / 10) * 10;
+    return `In ${rounded} m`;
+  }
+  return `In ${(meters / 1000).toFixed(1)} km`;
+}
+
+function updateNavInstruction(lat, lon) {
   if (!navState) return;
   const steps = navState.route.steps;
-  const step = steps[navState.stepIndex] || steps[steps.length - 1];
-  $("nav-instruction").textContent = step?.instruction || "Weiterfahren";
+  const { step } = getUpcomingStep(steps, navState.stepIndex);
+
+  let distanceM = 0;
+  if (lat != null && lon != null && step?.lat != null && step?.lon != null) {
+    distanceM = distM(lat, lon, step.lat, step.lon);
+  }
+
+  const direction = stepDirection(step);
+  $("nav-distance").textContent = step.type === "arrive"
+    ? "Fast da"
+    : formatDistanceLabel(distanceM);
+  $("nav-instruction").textContent = direction.charAt(0).toUpperCase() + direction.slice(1);
+  $("nav-icon").textContent = stepIcon(step);
   $("nav-meta").textContent = `${navState.route.distance_km} km · ca. ${navState.route.duration_min} Min · Ankunft ${navState.eta}`;
 }
 
