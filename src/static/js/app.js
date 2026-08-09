@@ -2,7 +2,13 @@
 
 let map, marker, routeLayer, poiLayer, favLayer;
 let appConfig = {}, ws = null, lastGps = null;
-let navState = null; // { route, stepIndex, destination, eta }
+let navState = null;
+
+const REROUTE = {
+  offRouteM: 80,
+  minIntervalMs: 15000,
+  confirmTicks: 2,
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -175,8 +181,8 @@ async function searchDestination() {
   }
 }
 
-async function startNavigation(dest) {
-  if (!lastGps?.latitude) { alert("Kein GPS-Signal."); return; }
+async function startNavigation(dest, { fitMap = true, isReroute = false } = {}) {
+  if (!lastGps?.latitude) { alert("Kein GPS-Signal."); return false; }
 
   const res = await fetch("/api/route", {
     method: "POST",
@@ -187,22 +193,53 @@ async function startNavigation(dest) {
     }),
   });
 
-  if (!res.ok) { alert("Route nicht gefunden."); return; }
-  const route = await res.json();
+  if (!res.ok) {
+    if (!isReroute) alert("Route nicht gefunden.");
+    return false;
+  }
 
-  navState = { route, stepIndex: 0, destination: dest, eta: route.eta_local };
+  const route = await res.json();
+  applyRoute(route, dest, { fitMap, isReroute });
+  return true;
+}
+
+function applyRoute(route, dest, { fitMap = true, isReroute = false } = {}) {
+  const prev = navState || {};
+  navState = {
+    route,
+    stepIndex: 0,
+    destination: dest,
+    eta: route.eta_local,
+    routeCoords: extractRouteCoords(route.geometry),
+    lastRerouteAt: isReroute ? Date.now() : (prev.lastRerouteAt || 0),
+    rerouting: false,
+    offRouteCount: 0,
+  };
 
   if (routeLayer) map.removeLayer(routeLayer);
   routeLayer = L.geoJSON(route.geometry, {
     style: { color: appConfig.accent_color || "#0044cc", weight: 5, opacity: 0.85 },
   }).addTo(map);
-  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+  if (fitMap) map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 
   $("eta").textContent = route.eta_local;
   $("eta-widget").classList.remove("hidden");
   $("btn-stop-nav").classList.remove("hidden");
   $("nav-banner").classList.remove("hidden");
-  updateNavInstruction(lastGps.latitude, lastGps.longitude);
+
+  if (isReroute) {
+    navState.rerouteMsgUntil = Date.now() + 5000;
+  }
+
+  if (lastGps?.latitude != null) {
+    updateNavInstruction(lastGps.latitude, lastGps.longitude);
+  }
+}
+
+function extractRouteCoords(geometry) {
+  if (!geometry?.coordinates?.length) return [];
+  return geometry.coordinates.map(([lon, lat]) => [lat, lon]);
 }
 
 async function startNavigationTo(lat, lon, name) {
@@ -219,13 +256,14 @@ function stopNavigation() {
 }
 
 function updateNavigation(pos) {
-  if (!navState) return;
+  if (!navState || navState.rerouting) return;
   const steps = navState.route.steps || [];
   if (!steps.length) return;
 
   const [lat, lon] = pos;
-  let idx = navState.stepIndex;
+  checkReroute(lat, lon);
 
+  let idx = navState.stepIndex;
   while (idx < steps.length - 1) {
     const step = steps[idx];
     if (step.lat != null && distM(lat, lon, step.lat, step.lon) < 40) idx++;
@@ -233,12 +271,61 @@ function updateNavigation(pos) {
   }
   navState.stepIndex = idx;
   updateNavInstruction(lat, lon);
+  map.panTo(pos, { animate: true, duration: 0.5 });
 
   if (idx === steps.length - 1 && distM(lat, lon, navState.destination.lat, navState.destination.lon) < 30) {
     $("nav-distance").textContent = "🎉 Ziel erreicht!";
     $("nav-instruction").textContent = navState.destination.name || "Du bist angekommen.";
     $("nav-icon").textContent = "🏁";
   }
+}
+
+async function checkReroute(lat, lon) {
+  if (!navState?.routeCoords?.length) return;
+
+  const now = Date.now();
+  if (now - navState.lastRerouteAt < REROUTE.minIntervalMs) return;
+
+  const distToRoute = distanceToRoute(lat, lon, navState.routeCoords);
+  if (distToRoute > REROUTE.offRouteM) {
+    navState.offRouteCount += 1;
+  } else {
+    navState.offRouteCount = 0;
+    return;
+  }
+
+  if (navState.offRouteCount < REROUTE.confirmTicks) return;
+
+  navState.rerouting = true;
+  navState.offRouteCount = 0;
+  $("nav-distance").textContent = "↻";
+  $("nav-instruction").textContent = "Route wird neu berechnet …";
+
+  try {
+    await startNavigation(navState.destination, { fitMap: false, isReroute: true });
+  } finally {
+    if (navState) navState.rerouting = false;
+  }
+}
+
+function distanceToRoute(lat, lon, coords) {
+  let min = Infinity;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [lat1, lon1] = coords[i];
+    const [lat2, lon2] = coords[i + 1];
+    min = Math.min(min, distToSegment(lat, lon, lat1, lon1, lat2, lon2));
+  }
+  return min;
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  if (dx === 0 && dy === 0) return distM(px, py, ax, ay);
+
+  let t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+  t = Math.max(0, Math.min(1, t));
+  return distM(px, py, ax + t * dx, ay + t * dy);
 }
 
 function getUpcomingStep(steps, idx) {
@@ -312,7 +399,12 @@ function updateNavInstruction(lat, lon) {
     : formatDistanceLabel(distanceM);
   $("nav-instruction").textContent = direction.charAt(0).toUpperCase() + direction.slice(1);
   $("nav-icon").textContent = stepIcon(step);
-  $("nav-meta").textContent = `${navState.route.distance_km} km · ca. ${navState.route.duration_min} Min · Ankunft ${navState.eta}`;
+
+  if (navState.rerouteMsgUntil && Date.now() < navState.rerouteMsgUntil) {
+    $("nav-meta").textContent = `↻ Route angepasst · ${navState.route.distance_km} km · Ankunft ${navState.eta}`;
+  } else {
+    $("nav-meta").textContent = `${navState.route.distance_km} km · ca. ${navState.route.duration_min} Min · Ankunft ${navState.eta}`;
+  }
 }
 
 // ── POI ──
