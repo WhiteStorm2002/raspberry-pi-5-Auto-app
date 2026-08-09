@@ -21,7 +21,7 @@ weather:
   cache_seconds: 600
 
 poi:
-  radius_m: 8000
+  radius_m: 10000
   cache_seconds: 120
 
 traffic:

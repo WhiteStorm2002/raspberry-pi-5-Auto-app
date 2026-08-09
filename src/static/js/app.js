@@ -205,12 +205,14 @@ async function startNavigation(dest, { fitMap = true, isReroute = false } = {}) 
 
 function applyRoute(route, dest, { fitMap = true, isReroute = false } = {}) {
   const prev = navState || {};
+  const routeCoords = extractRouteCoords(route.geometry);
+  const steps = enrichSteps(route.steps || [], routeCoords);
+
   navState = {
-    route,
-    stepIndex: 0,
+    route: { ...route, steps },
     destination: dest,
     eta: route.eta_local,
-    routeCoords: extractRouteCoords(route.geometry),
+    routeCoords,
     lastRerouteAt: isReroute ? Date.now() : (prev.lastRerouteAt || 0),
     rerouting: false,
     offRouteCount: 0,
@@ -262,20 +264,13 @@ function updateNavigation(pos) {
 
   const [lat, lon] = pos;
   checkReroute(lat, lon);
-
-  let idx = navState.stepIndex;
-  while (idx < steps.length - 1) {
-    const step = steps[idx];
-    if (step.lat != null && distM(lat, lon, step.lat, step.lon) < 40) idx++;
-    else break;
-  }
-  navState.stepIndex = idx;
   updateNavInstruction(lat, lon);
   map.panTo(pos, { animate: true, duration: 0.5 });
 
-  if (idx === steps.length - 1 && distM(lat, lon, navState.destination.lat, navState.destination.lon) < 30) {
+  const dest = navState.destination;
+  if (distM(lat, lon, dest.lat, dest.lon) < 35) {
     $("nav-distance").textContent = "🎉 Ziel erreicht!";
-    $("nav-instruction").textContent = navState.destination.name || "Du bist angekommen.";
+    $("nav-instruction").textContent = dest.name || "Du bist angekommen.";
     $("nav-icon").textContent = "🏁";
   }
 }
@@ -328,6 +323,122 @@ function distToSegment(px, py, ax, ay, bx, by) {
   return distM(px, py, ax + t * dx, ay + t * dy);
 }
 
+const ANNOUNCE_DISTANCES = [1000, 750, 500, 250, 100, 50];
+const COMBINE_MANEUVER_M = 150;
+
+function enrichSteps(steps, routeCoords) {
+  return steps.map((step) => ({
+    ...step,
+    routeDistM: step.lat != null && step.lon != null
+      ? distanceAlongRouteToPoint(step.lat, step.lon, routeCoords)
+      : 0,
+  }));
+}
+
+function distanceAlongRouteToPoint(lat, lon, coords) {
+  if (!coords.length) return 0;
+  let total = 0;
+  let bestDist = Infinity;
+  let bestAlong = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [aLat, aLon] = coords[i];
+    const [bLat, bLon] = coords[i + 1];
+    const segLen = distM(aLat, aLon, bLat, bLon);
+    const off = distToSegment(lat, lon, aLat, aLon, bLat, bLon);
+
+    if (off < bestDist) {
+      bestDist = off;
+      const dx = bLon - aLon;
+      const dy = bLat - aLat;
+      let t = 0;
+      if (dx !== 0 || dy !== 0) {
+        t = ((lon - aLon) * dx + (lat - aLat) * dy) / (dx * dx + dy * dy);
+        t = Math.max(0, Math.min(1, t));
+      }
+      bestAlong = total + segLen * t;
+    }
+    total += segLen;
+  }
+  return bestAlong;
+}
+
+function isMeaningfulManeuver(step) {
+  if (!step || step.type === "depart") return false;
+  if (step.type === "arrive") return true;
+  if (["continue", "new name"].includes(step.type) && !step.modifier) return false;
+  return true;
+}
+
+function findNextManeuver(steps, progressM) {
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!isMeaningfulManeuver(step)) continue;
+    if (step.routeDistM > progressM + 12) {
+      return { index: i, step, distM: step.routeDistM - progressM };
+    }
+  }
+  const last = steps[steps.length - 1];
+  return { index: steps.length - 1, step: last, distM: 0 };
+}
+
+function findCombinedManeuver(steps, primaryIdx) {
+  const primary = steps[primaryIdx];
+  if (!primary) return null;
+
+  for (let j = primaryIdx + 1; j < steps.length; j++) {
+    const next = steps[j];
+    if (next.type === "arrive") break;
+    if (!isMeaningfulManeuver(next)) continue;
+
+    const gap = next.routeDistM - primary.routeDistM;
+    if (gap > COMBINE_MANEUVER_M) break;
+    return next;
+  }
+  return null;
+}
+
+function stepDirectionShort(step) {
+  if (!step) return "weiterfahren";
+  const mod = step.modifier || "";
+  const map = {
+    left: "links",
+    right: "rechts",
+    straight: "geradeaus",
+    "slight left": "leicht links",
+    "slight right": "leicht rechts",
+    "sharp left": "scharf links",
+    "sharp right": "scharf rechts",
+    uturn: "wenden",
+  };
+  if (map[mod]) return `${map[mod]} abbiegen`;
+  if (step.type === "roundabout" || step.type === "rotary") return "in den Kreisverkehr fahren";
+  if (step.type === "off ramp") return "Ausfahrt nehmen";
+  return stepDirection(step);
+}
+
+function buildManeuverText(steps, primaryIdx) {
+  const primary = steps[primaryIdx];
+  const combined = findCombinedManeuver(steps, primaryIdx);
+
+  if (combined) {
+    const first = stepDirection(primary);
+    const second = stepDirectionShort(combined);
+    return `${first.charAt(0).toUpperCase() + first.slice(1)}, dann ${second}`;
+  }
+
+  const dir = stepDirection(primary);
+  return dir.charAt(0).toUpperCase() + dir.slice(1);
+}
+
+function formatAnnounceDistance(meters) {
+  if (meters < 50) return "Jetzt";
+  for (const threshold of ANNOUNCE_DISTANCES) {
+    if (meters >= threshold) return `In ${threshold} m`;
+  }
+  return "Jetzt";
+}
+
 function getUpcomingStep(steps, idx) {
   for (let i = idx; i < steps.length; i++) {
     if (steps[i].type === "depart") continue;
@@ -375,30 +486,23 @@ function stepIcon(step) {
 }
 
 function formatDistanceLabel(meters) {
-  if (meters < 80) return "Jetzt";
-  if (meters < 1000) {
-    const rounded = Math.round(meters / 10) * 10;
-    return `In ${rounded} m`;
-  }
-  return `In ${(meters / 1000).toFixed(1)} km`;
+  return formatAnnounceDistance(meters);
 }
 
 function updateNavInstruction(lat, lon) {
   if (!navState) return;
   const steps = navState.route.steps;
-  const { step } = getUpcomingStep(steps, navState.stepIndex);
+  const progressM = distanceAlongRouteToPoint(lat, lon, navState.routeCoords);
+  const { index, step, distM } = findNextManeuver(steps, progressM);
 
-  let distanceM = 0;
-  if (lat != null && lon != null && step?.lat != null && step?.lon != null) {
-    distanceM = distM(lat, lon, step.lat, step.lon);
-  }
+  const instruction = buildManeuverText(steps, index);
+  const combined = findCombinedManeuver(steps, index);
 
-  const direction = stepDirection(step);
   $("nav-distance").textContent = step.type === "arrive"
     ? "Fast da"
-    : formatDistanceLabel(distanceM);
-  $("nav-instruction").textContent = direction.charAt(0).toUpperCase() + direction.slice(1);
-  $("nav-icon").textContent = stepIcon(step);
+    : formatAnnounceDistance(distM);
+  $("nav-instruction").textContent = instruction;
+  $("nav-icon").textContent = combined ? "↱" : stepIcon(step);
 
   if (navState.rerouteMsgUntil && Date.now() < navState.rerouteMsgUntil) {
     $("nav-meta").textContent = `↻ Route angepasst · ${navState.route.distance_km} km · Ankunft ${navState.eta}`;
@@ -409,34 +513,90 @@ function updateNavInstruction(lat, lon) {
 
 // ── POI ──
 
+function showInfoBanner(message, isError = false) {
+  const banner = $("traffic-banner");
+  banner.textContent = message;
+  banner.classList.toggle("severe", isError);
+  banner.classList.remove("hidden");
+  clearTimeout(showInfoBanner._timer);
+  showInfoBanner._timer = setTimeout(() => banner.classList.add("hidden"), 6000);
+}
+
 async function showPoi(type) {
-  if (!lastGps?.latitude) { alert("Kein GPS-Signal."); return; }
+  if (!lastGps?.latitude) {
+    showInfoBanner("Kein GPS-Signal – POI-Suche nicht möglich.", true);
+    return;
+  }
+
+  const label = type === "fuel" ? "Tankstellen" : "Rastplätze";
+  showInfoBanner(`${label} werden gesucht …`);
 
   poiLayer.clearLayers();
-  const res = await fetch(`/api/poi/${type}?lat=${lastGps.latitude}&lon=${lastGps.longitude}`);
-  const data = await res.json();
+
+  let data;
+  try {
+    const res = await fetch(
+      `/api/poi/${type}?lat=${lastGps.latitude}&lon=${lastGps.longitude}`
+    );
+    if (!res.ok) throw new Error("api");
+    data = await res.json();
+  } catch {
+    showInfoBanner(`${label}: Fehler bei der Suche. Internet prüfen.`, true);
+    return;
+  }
+
   const icon = type === "fuel" ? "⛽" : "🅿️";
 
+  if (!data.items?.length) {
+    showInfoBanner(`Keine ${label} in der Nähe gefunden (10 km Radius).`, true);
+    return;
+  }
+
   data.items.forEach((item) => {
-    L.marker([item.lat, item.lon], {
+    const marker = L.marker([item.lat, item.lon], {
       icon: L.divIcon({
         className: "poi-marker",
         html: `<div style="font-size:22px">${icon}</div>`,
         iconSize: [28, 28],
       }),
-    })
-      .bindPopup(`<div class="poi-popup"><strong>${item.name}</strong><br><button onclick="navigateToPoi(${item.lat},${item.lon},'${esc(item.name)}')" style="margin-top:6px;padding:8px 14px;border-radius:8px;border:none;background:#0044cc;color:#fff;font-size:14px;cursor:pointer">Route</button></div>`)
-      .addTo(poiLayer);
+    });
+
+    const dist = formatDist(distM(lastGps.latitude, lastGps.longitude, item.lat, item.lon));
+    marker.bindPopup(`
+      <div class="poi-popup">
+        <strong>${escHtml(item.name)}</strong><br>
+        <span style="color:#8b95a8;font-size:0.85rem">${dist} entfernt</span><br>
+        <button class="poi-route-btn" style="margin-top:8px;padding:10px 16px;border-radius:10px;border:none;background:#0044cc;color:#fff;font-size:15px;cursor:pointer;width:100%">Route starten</button>
+      </div>
+    `);
+
+    marker.on("popupopen", (e) => {
+      const btn = e.popup.getElement()?.querySelector(".poi-route-btn");
+      if (btn) {
+        btn.onclick = () => {
+          map.closePopup();
+          startNavigationTo(item.lat, item.lon, item.name);
+        };
+      }
+    });
+
+    marker.addTo(poiLayer);
   });
 
-  if (data.items.length) {
-    const bounds = L.latLngBounds(data.items.map((i) => [i.lat, i.lon]));
-    bounds.extend([lastGps.latitude, lastGps.longitude]);
-    map.fitBounds(bounds, { padding: [30, 30] });
-  }
+  showInfoBanner(`${data.items.length} ${label} gefunden – Marker auf der Karte.`);
+
+  const bounds = L.latLngBounds(data.items.map((i) => [i.lat, i.lon]));
+  bounds.extend([lastGps.latitude, lastGps.longitude]);
+  map.fitBounds(bounds, { padding: [30, 30] });
 }
 
-window.navigateToPoi = (lat, lon, name) => startNavigationTo(lat, lon, name);
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 // ── Favoriten ──
 
