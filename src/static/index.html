@@ -47,12 +47,17 @@
     </div>
 
     <div class="main-area">
-      <main class="map-panel">
+      <main class="map-panel" id="map-panel">
         <div id="map"></div>
+        <div class="map-pick-overlay hidden" id="map-pick-overlay">
+          👆 Ziel auf der Karte antippen
+          <button class="btn btn-small" id="btn-pick-cancel" type="button">Abbrechen</button>
+        </div>
       </main>
 
       <aside class="side-panel" id="side-panel">
-        <button class="btn btn-primary" id="btn-destination">🎯 Ziel eingeben</button>
+        <button class="btn btn-primary" id="btn-destination">🎯 Ziel wählen</button>
+        <button class="btn" id="btn-map-pick">📍 Ziel auf Karte</button>
         <button class="btn" id="btn-favorites">⭐ Favoriten</button>
         <button class="btn" id="btn-save-fav">📍 Hier speichern</button>
         <button class="btn" id="btn-fuel">⛽ Tankstellen</button>
@@ -70,14 +75,29 @@
   <!-- Modal: Ziel -->
   <div class="modal hidden" id="modal-destination">
     <div class="modal-content">
-      <h2>Ziel eingeben</h2>
+      <h2>Ziel wählen</h2>
+      <button class="btn btn-primary btn-block" id="btn-dest-map" type="button">📍 Auf Karte antippen</button>
+      <p class="hint hint-center">Ohne Tastatur – einfach den Ort auf der Karte berühren.</p>
+      <hr class="modal-divider">
+      <p class="hint">Optional mit Tastatur:</p>
       <input type="text" id="dest-input" class="input-large" placeholder="Adresse oder Ort …" autocomplete="off">
       <div class="modal-actions">
-        <button class="btn" id="btn-dest-cancel">Abbrechen</button>
-        <button class="btn btn-primary" id="btn-dest-search">Navigation starten</button>
+        <button class="btn" id="btn-dest-cancel" type="button">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-dest-search" type="button">Navigation starten</button>
       </div>
-      <p class="hint">Die Navigation startet sofort – kein extra „Start“ nötig.</p>
       <p class="hint" id="dest-status"></p>
+    </div>
+  </div>
+
+  <!-- Modal: Karten-Ziel bestätigen -->
+  <div class="modal hidden" id="modal-map-confirm">
+    <div class="modal-content">
+      <h2>Ziel bestätigen</h2>
+      <p class="confirm-address" id="map-confirm-address">—</p>
+      <div class="modal-actions">
+        <button class="btn" id="btn-map-confirm-cancel" type="button">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-map-confirm-go" type="button">Navigation starten</button>
+      </div>
     </div>
   </div>
 

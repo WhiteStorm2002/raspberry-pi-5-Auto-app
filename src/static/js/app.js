@@ -1,6 +1,8 @@
 /* Reise-Navi – Frontend */
 
-let map, marker, routeLayer, poiLayer, favLayer, waypointLayer;
+let map, marker, routeLayer, poiLayer, favLayer, waypointLayer, pickMarker;
+let mapPickMode = false;
+let pendingMapDest = null;
 let appConfig = {}, ws = null, lastGps = null;
 let navState = null;
 
@@ -58,10 +60,22 @@ function initMap() {
     radius: 11, fillColor: appConfig.accent_color || "#0044cc",
     color: "#fff", weight: 2, fillOpacity: 1,
   }).addTo(map);
+
+  map.on("click", onMapClick);
+}
+
+function onMapClick(event) {
+  if (!mapPickMode) return;
+  handleMapPick(event.latlng.lat, event.latlng.lng);
 }
 
 function bindButtons() {
   $("btn-destination").onclick = () => openModal("modal-destination");
+  $("btn-map-pick").onclick = () => startMapPick();
+  $("btn-dest-map").onclick = () => startMapPick();
+  $("btn-pick-cancel").onclick = () => stopMapPick();
+  $("btn-map-confirm-cancel").onclick = () => { pendingMapDest = null; closeModal("modal-map-confirm"); };
+  $("btn-map-confirm-go").onclick = () => confirmMapDestinationGo();
   $("btn-favorites").onclick = () => { openFavorites(); openModal("modal-favorites"); };
   $("btn-save-fav").onclick = () => openModal("modal-save");
   $("btn-fuel").onclick = () => showPoi("fuel");
@@ -156,6 +170,62 @@ function startClock() {
 }
 
 // ── Navigation ──
+
+function startMapPick() {
+  closeModal("modal-destination");
+  mapPickMode = true;
+  $("map-panel").classList.add("pick-mode");
+  $("map-pick-overlay").classList.remove("hidden");
+  showInfoBanner("Tippe das Ziel auf der Karte an.");
+}
+
+function stopMapPick() {
+  mapPickMode = false;
+  $("map-panel").classList.remove("pick-mode");
+  $("map-pick-overlay").classList.add("hidden");
+  if (pickMarker) {
+    map.removeLayer(pickMarker);
+    pickMarker = null;
+  }
+}
+
+async function handleMapPick(lat, lon) {
+  stopMapPick();
+
+  if (pickMarker) map.removeLayer(pickMarker);
+  pickMarker = L.marker([lat, lon], {
+    icon: L.divIcon({
+      className: "pick-marker-wrap",
+      html: '<div class="pick-marker"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    }),
+  }).addTo(map);
+
+  $("map-confirm-address").textContent = "Adresse wird gesucht …";
+  openModal("modal-map-confirm");
+
+  let name = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
+      { headers: { "Accept-Language": "de" } }
+    );
+    const data = await res.json();
+    name = data.display_name || name;
+  } catch { /* Koordinaten als Fallback */ }
+
+  pendingMapDest = { lat, lon, name };
+  $("map-confirm-address").textContent = name;
+}
+
+async function confirmMapDestinationGo() {
+  if (!pendingMapDest) return;
+  const dest = pendingMapDest;
+  pendingMapDest = null;
+  closeModal("modal-map-confirm");
+  await startNavigation(dest);
+}
 
 async function searchDestination() {
   const query = $("dest-input").value.trim();

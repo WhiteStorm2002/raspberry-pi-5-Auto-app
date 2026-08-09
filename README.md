@@ -85,11 +85,20 @@ Falls sie noch erscheint, nach `git pull` einmal manuell in `scripts/launch.sh` 
 
 | Button | Funktion |
 |--------|----------|
-| **Ziel eingeben** | Adresse suchen, Navigation starten |
-| **Favoriten** | Gespeicherte Orte ansteuern |
-| **Hier speichern** | Aktuelle Position als Favorit |
-| **Tankstellen** | ⛽ in der Nähe |
+| **Ziel wählen** | Ziel-Dialog (Karte oder optional Tastatur) |
+| **Ziel auf Karte** | Direkt auf der Karte antippen – **ohne Tastatur** |
+| **Favoriten** | Gespeicherte Orte ansteuern (Hotel, Einkauf …) |
+| **Hier speichern** | Aktuelle Position als Favorit merken |
+| **Tankstellen** | ⛽ in der Nähe (als Zwischenstopp möglich) |
 | **Rastplätze** | 🅿️ in der Nähe |
+
+### Ziel ohne Tastatur (im Auto)
+
+1. **Ziel auf Karte** tippen → Ort auf der Karte berühren → **Navigation starten**
+2. Oder **Favoriten** nutzen (Hotel etc. vorher einmal speichern)
+3. Optional: **Tankstelle/Rastplatz** als Zwischenstopp antippen
+
+Tipp: Speichere Unterkunft und häufige Ziele als **Favoriten**, wenn du noch eine Tastatur angeschlossen hast – im Urlaub reicht dann ein Tipp.
 
 ## Deinstallieren
 
