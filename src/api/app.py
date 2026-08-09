@@ -42,11 +42,18 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _speed_warning_tolerance = int(config.get("speed_warning", {}).get("tolerance_kmh", 5))
 
 
+class Waypoint(BaseModel):
+    lat: float
+    lon: float
+    name: str | None = None
+
+
 class RouteRequest(BaseModel):
     from_lat: float
     from_lon: float
     to_lat: float
     to_lon: float
+    waypoints: list[Waypoint] = Field(default_factory=list)
 
 
 class FavoriteRequest(BaseModel):
@@ -123,8 +130,13 @@ async def get_status() -> dict[str, Any]:
 
 @app.post("/api/route")
 async def calculate_route(body: RouteRequest) -> dict[str, Any]:
+    waypoint_coords = [(wp.lat, wp.lon) for wp in body.waypoints]
     result = await routing_service.calculate(
-        body.from_lat, body.from_lon, body.to_lat, body.to_lon
+        body.from_lat,
+        body.from_lon,
+        body.to_lat,
+        body.to_lon,
+        waypoints=waypoint_coords or None,
     )
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])
@@ -134,6 +146,7 @@ async def calculate_route(body: RouteRequest) -> dict[str, Any]:
     result["eta_local"] = eta.astimezone().strftime("%H:%M")
     result["distance_km"] = round(result["distance_m"] / 1000, 1)
     result["duration_min"] = round(result["duration_s"] / 60)
+    result["waypoints"] = [wp.model_dump() for wp in body.waypoints]
     return result
 
 

@@ -63,14 +63,20 @@ class RoutingService:
         from_lon: float,
         to_lat: float,
         to_lon: float,
+        waypoints: list[tuple[float, float]] | None = None,
     ) -> dict:
-        coords = f"{from_lon},{from_lat};{to_lon},{to_lat}"
+        points: list[tuple[float, float]] = [(from_lon, from_lat)]
+        if waypoints:
+            points.extend((lon, lat) for lat, lon in waypoints)
+        points.append((to_lon, to_lat))
+
+        coords = ";".join(f"{lon},{lat}" for lon, lat in points)
         url = (
             f"{self._base_url}/route/v1/driving/{coords}"
             "?steps=true&geometries=geojson&overview=full&annotations=true"
         )
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=25.0) as client:
             response = await client.get(url)
             response.raise_for_status()
             data = response.json()
@@ -79,24 +85,23 @@ class RoutingService:
             return {"error": "Route nicht gefunden"}
 
         route = data["routes"][0]
-        legs = route.get("legs", [{}])
-        leg = legs[0] if legs else {}
-
         steps = []
-        for step in leg.get("steps", []):
-            maneuver = step.get("maneuver", {})
-            loc = maneuver.get("location", [])
-            steps.append(
-                {
-                    "instruction": _format_step(step),
-                    "distance_m": round(step.get("distance", 0)),
-                    "duration_s": round(step.get("duration", 0)),
-                    "lon": loc[0] if len(loc) > 0 else None,
-                    "lat": loc[1] if len(loc) > 1 else None,
-                    "type": maneuver.get("type"),
-                    "modifier": maneuver.get("modifier"),
-                }
-            )
+
+        for leg in route.get("legs", []):
+            for step in leg.get("steps", []):
+                maneuver = step.get("maneuver", {})
+                loc = maneuver.get("location", [])
+                steps.append(
+                    {
+                        "instruction": _format_step(step),
+                        "distance_m": round(step.get("distance", 0)),
+                        "duration_s": round(step.get("duration", 0)),
+                        "lon": loc[0] if len(loc) > 0 else None,
+                        "lat": loc[1] if len(loc) > 1 else None,
+                        "type": maneuver.get("type"),
+                        "modifier": maneuver.get("modifier"),
+                    }
+                )
 
         return {
             "distance_m": round(route.get("distance", 0)),
@@ -104,4 +109,5 @@ class RoutingService:
             "geometry": route.get("geometry"),
             "steps": steps,
             "destination": {"lat": to_lat, "lon": to_lon},
+            "waypoint_count": len(waypoints or []),
         }

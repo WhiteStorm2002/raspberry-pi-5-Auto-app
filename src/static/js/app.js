@@ -1,6 +1,6 @@
 /* Reise-Navi – Frontend */
 
-let map, marker, routeLayer, poiLayer, favLayer;
+let map, marker, routeLayer, poiLayer, favLayer, waypointLayer;
 let appConfig = {}, ws = null, lastGps = null;
 let navState = null;
 
@@ -52,6 +52,7 @@ function initMap() {
 
   poiLayer = L.layerGroup().addTo(map);
   favLayer = L.layerGroup().addTo(map);
+  waypointLayer = L.layerGroup().addTo(map);
 
   marker = L.circleMarker(center, {
     radius: 11, fillColor: appConfig.accent_color || "#0044cc",
@@ -181,36 +182,63 @@ async function searchDestination() {
   }
 }
 
-async function startNavigation(dest, { fitMap = true, isReroute = false } = {}) {
-  if (!lastGps?.latitude) { alert("Kein GPS-Signal."); return false; }
+async function fetchRoute(finalDest, waypoints = []) {
+  if (!lastGps?.latitude) return null;
 
   const res = await fetch("/api/route", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      from_lat: lastGps.latitude, from_lon: lastGps.longitude,
-      to_lat: dest.lat, to_lon: dest.lon,
+      from_lat: lastGps.latitude,
+      from_lon: lastGps.longitude,
+      to_lat: finalDest.lat,
+      to_lon: finalDest.lon,
+      waypoints: waypoints.map((w) => ({ lat: w.lat, lon: w.lon, name: w.name })),
     }),
   });
 
-  if (!res.ok) {
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function startNavigation(dest, { fitMap = true, isReroute = false, waypoints = [] } = {}) {
+  if (!lastGps?.latitude) { alert("Kein GPS-Signal."); return false; }
+
+  const route = await fetchRoute(dest, waypoints);
+  if (!route) {
     if (!isReroute) alert("Route nicht gefunden.");
     return false;
   }
 
-  const route = await res.json();
-  applyRoute(route, dest, { fitMap, isReroute });
+  applyRoute(route, dest, { fitMap, isReroute, waypoints });
   return true;
 }
 
-function applyRoute(route, dest, { fitMap = true, isReroute = false } = {}) {
+function drawWaypointMarkers(waypoints) {
+  waypointLayer.clearLayers();
+  waypoints.forEach((wp, index) => {
+    L.marker([wp.lat, wp.lon], {
+      icon: L.divIcon({
+        className: "waypoint-marker",
+        html: `<div style="background:#f39c12;color:#0b0f16;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid #fff">${index + 1}</div>`,
+        iconSize: [26, 26],
+      }),
+    })
+      .bindPopup(`<strong>Zwischenstopp ${index + 1}</strong><br>${escHtml(wp.name || "Stopp")}`)
+      .addTo(waypointLayer);
+  });
+}
+
+function applyRoute(route, finalDest, { fitMap = true, isReroute = false, waypoints = [] } = {}) {
   const prev = navState || {};
   const routeCoords = extractRouteCoords(route.geometry);
   const steps = enrichSteps(route.steps || [], routeCoords);
 
   navState = {
     route: { ...route, steps },
-    destination: dest,
+    finalDestination: finalDest,
+    waypoints: [...waypoints],
+    destination: finalDest,
     eta: route.eta_local,
     routeCoords,
     lastRerouteAt: isReroute ? Date.now() : (prev.lastRerouteAt || 0),
@@ -222,6 +250,8 @@ function applyRoute(route, dest, { fitMap = true, isReroute = false } = {}) {
   routeLayer = L.geoJSON(route.geometry, {
     style: { color: appConfig.accent_color || "#0044cc", weight: 5, opacity: 0.85 },
   }).addTo(map);
+
+  drawWaypointMarkers(waypoints);
 
   if (fitMap) map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 
@@ -244,14 +274,38 @@ function extractRouteCoords(geometry) {
   return geometry.coordinates.map(([lon, lat]) => [lat, lon]);
 }
 
-async function startNavigationTo(lat, lon, name) {
-  await startNavigation({ lat, lon, name });
+async function startNavigationTo(lat, lon, name, { forceNew = false } = {}) {
+  const hasActiveRoute = navState?.finalDestination && !forceNew;
+
+  if (hasActiveRoute) {
+    const waypoints = [...(navState.waypoints || [])];
+    const duplicate = waypoints.some((w) => distM(w.lat, w.lon, lat, lon) < 80);
+    if (!duplicate) {
+      waypoints.push({ lat, lon, name: name || "Zwischenstopp" });
+    }
+
+    const ok = await startNavigation(navState.finalDestination, {
+      fitMap: false,
+      waypoints,
+    });
+
+    if (ok) {
+      showInfoBanner(`Zwischenstopp hinzugefügt: ${name || "Stopp"} – Route zum Ziel bleibt.`);
+    } else {
+      showInfoBanner("Zwischenstopp konnte nicht gesetzt werden.", true);
+    }
+  } else {
+    await startNavigation({ lat, lon, name }, { waypoints: [] });
+  }
+
   closeModal("modal-favorites");
+  map.closePopup();
 }
 
 function stopNavigation() {
   navState = null;
   if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  waypointLayer.clearLayers();
   $("eta-widget").classList.add("hidden");
   $("btn-stop-nav").classList.add("hidden");
   $("nav-banner").classList.add("hidden");
@@ -267,7 +321,7 @@ function updateNavigation(pos) {
   updateNavInstruction(lat, lon);
   map.panTo(pos, { animate: true, duration: 0.5 });
 
-  const dest = navState.destination;
+  const dest = navState.finalDestination || navState.destination;
   if (distM(lat, lon, dest.lat, dest.lon) < 35) {
     $("nav-distance").textContent = "🎉 Ziel erreicht!";
     $("nav-instruction").textContent = dest.name || "Du bist angekommen.";
@@ -297,7 +351,11 @@ async function checkReroute(lat, lon) {
   $("nav-instruction").textContent = "Route wird neu berechnet …";
 
   try {
-    await startNavigation(navState.destination, { fitMap: false, isReroute: true });
+    await startNavigation(navState.finalDestination, {
+      fitMap: false,
+      isReroute: true,
+      waypoints: navState.waypoints || [],
+    });
   } finally {
     if (navState) navState.rerouting = false;
   }
@@ -507,7 +565,12 @@ function updateNavInstruction(lat, lon) {
   if (navState.rerouteMsgUntil && Date.now() < navState.rerouteMsgUntil) {
     $("nav-meta").textContent = `↻ Route angepasst · ${navState.route.distance_km} km · Ankunft ${navState.eta}`;
   } else {
-    $("nav-meta").textContent = `${navState.route.distance_km} km · ca. ${navState.route.duration_min} Min · Ankunft ${navState.eta}`;
+    let meta = `${navState.route.distance_km} km · ca. ${navState.route.duration_min} Min · Ankunft ${navState.eta}`;
+    if (navState.waypoints?.length) {
+      const nextWp = navState.waypoints[0]?.name || "Zwischenstopp";
+      meta = `über ${nextWp} · ${meta}`;
+    }
+    $("nav-meta").textContent = meta;
   }
 }
 
@@ -562,11 +625,12 @@ async function showPoi(type) {
     });
 
     const dist = formatDist(distM(lastGps.latitude, lastGps.longitude, item.lat, item.lon));
+    const btnLabel = navState?.finalDestination ? "Als Zwischenstopp" : "Route starten";
     marker.bindPopup(`
       <div class="poi-popup">
         <strong>${escHtml(item.name)}</strong><br>
         <span style="color:#8b95a8;font-size:0.85rem">${dist} entfernt</span><br>
-        <button class="poi-route-btn" style="margin-top:8px;padding:10px 16px;border-radius:10px;border:none;background:#0044cc;color:#fff;font-size:15px;cursor:pointer;width:100%">Route starten</button>
+        <button class="poi-route-btn" style="margin-top:8px;padding:10px 16px;border-radius:10px;border:none;background:#0044cc;color:#fff;font-size:15px;cursor:pointer;width:100%">${btnLabel}</button>
       </div>
     `);
 
