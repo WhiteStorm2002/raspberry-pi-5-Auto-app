@@ -59,7 +59,7 @@
         <button class="btn btn-primary" id="btn-destination">🎯 Ziel wählen</button>
         <button class="btn" id="btn-map-pick">📍 Ziel auf Karte</button>
         <button class="btn" id="btn-favorites">⭐ Favoriten</button>
-        <button class="btn" id="btn-save-fav">📍 Hier speichern</button>
+        <button class="btn" id="btn-save-fav">📌 Ort speichern</button>
         <button class="btn" id="btn-fuel">⛽ Tankstellen</button>
         <button class="btn" id="btn-rest">🅿️ Rastplätze</button>
         <button class="btn btn-danger hidden" id="btn-stop-nav">✕ Navigation beenden</button>
@@ -114,19 +114,43 @@
 
   <!-- Modal: Speichern -->
   <div class="modal hidden" id="modal-save">
-    <div class="modal-content">
+    <div class="modal-content modal-wide">
       <h2>Ort speichern</h2>
-      <input type="text" id="save-name" class="input-large" placeholder="Name, z.B. Hotel">
+
+      <div class="save-mode-tabs">
+        <button class="btn save-mode-btn active" id="save-mode-here" type="button">📍 Hier (GPS)</button>
+        <button class="btn save-mode-btn" id="save-mode-address" type="button">🏠 Mit Adresse</button>
+      </div>
+
+      <div id="save-panel-here">
+        <p class="hint">Speichert deine <strong>aktuelle GPS-Position</strong> – z. B. wenn du vor Ort bist.</p>
+      </div>
+
+      <div id="save-panel-address" class="hidden">
+        <p class="hint">Adresse eingeben – ideal <strong>vor der Abfahrt</strong> (Hotel, Strand, Fähre …).</p>
+        <input type="text" id="save-address" class="input-large" placeholder="Adresse oder Ort, z.B. Seestraße 1, Binz">
+        <button class="btn btn-block" id="save-address-check" type="button">Adresse prüfen</button>
+        <p class="hint" id="save-address-result"></p>
+      </div>
+
+      <hr class="modal-divider">
+
+      <input type="text" id="save-name" class="input-large" placeholder="Name, z.B. Hotel, Strandparkplatz">
       <select id="save-category" class="input-large">
-        <option value="hotel">Unterkunft</option>
-        <option value="shop">Einkaufen</option>
+        <option value="hotel">Unterkunft / Hotel</option>
+        <option value="shop">Einkaufen / Supermarkt</option>
         <option value="park">Parkplatz</option>
+        <option value="beach">Strand</option>
+        <option value="ferry">Fähre</option>
+        <option value="waterpark">Wasserpark / Freizeit</option>
         <option value="other">Sonstiges</option>
       </select>
+
       <div class="modal-actions">
-        <button class="btn" id="btn-save-cancel">Abbrechen</button>
-        <button class="btn btn-primary" id="btn-save-confirm">Speichern</button>
+        <button class="btn" id="btn-save-cancel" type="button">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-save-confirm" type="button">Speichern</button>
       </div>
+      <p class="hint" id="save-status"></p>
     </div>
   </div>
 

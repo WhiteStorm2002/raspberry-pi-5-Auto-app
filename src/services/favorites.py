@@ -8,7 +8,7 @@ from typing import Any
 
 
 class FavoritesService:
-    CATEGORIES = ("hotel", "shop", "park", "other")
+    CATEGORIES = ("hotel", "shop", "park", "beach", "ferry", "waterpark", "other")
 
     def __init__(self, file_path: Path) -> None:
         self._path = file_path

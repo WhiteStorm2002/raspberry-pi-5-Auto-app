@@ -88,7 +88,7 @@ Falls sie noch erscheint, nach `git pull` einmal manuell in `scripts/launch.sh` 
 | **Ziel wählen** | Ziel-Dialog (Karte oder optional Tastatur) |
 | **Ziel auf Karte** | Direkt auf der Karte antippen – **ohne Tastatur** |
 | **Favoriten** | Gespeicherte Orte ansteuern (Hotel, Einkauf …) |
-| **Hier speichern** | Aktuelle Position als Favorit merken |
+| **Ort speichern** | Hier (GPS) oder **mit Adresse** – vor der Abfahrt planen |
 | **Tankstellen** | ⛽ in der Nähe (als Zwischenstopp möglich) |
 | **Rastplätze** | 🅿️ in der Nähe |
 
@@ -98,7 +98,7 @@ Falls sie noch erscheint, nach `git pull` einmal manuell in `scripts/launch.sh` 
 2. Oder **Favoriten** nutzen (Hotel etc. vorher einmal speichern)
 3. Optional: **Tankstelle/Rastplatz** als Zwischenstopp antippen
 
-Tipp: Speichere Unterkunft und häufige Ziele als **Favoriten**, wenn du noch eine Tastatur angeschlossen hast – im Urlaub reicht dann ein Tipp.
+Tipp: Speichere Unterkunft, Strand, Fähre etc. **vor der Abfahrt mit Adresse** unter „📌 Ort speichern“ → „Mit Adresse“. Im Auto reicht dann **Favoriten** → Route.
 
 ## Deinstallieren
 

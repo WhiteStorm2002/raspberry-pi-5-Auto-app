@@ -182,6 +182,24 @@ html, body {
   box-shadow: 0 0 12px rgba(231, 76, 60, 0.8);
 }
 
+.save-mode-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.save-mode-btn {
+  flex: 1;
+  min-height: 52px;
+  font-size: 0.95rem;
+}
+
+.save-mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent-light);
+  color: #fff;
+}
+
 .nav-text { flex: 1; min-width: 0; }
 .nav-distance { font-size: 1.6rem; font-weight: 700; color: var(--accent-light); line-height: 1.2; }
 .nav-instruction { font-size: 1.15rem; font-weight: 600; margin-top: 2px; }

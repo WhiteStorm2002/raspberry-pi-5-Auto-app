@@ -28,7 +28,18 @@ const TILE_LAYERS = {
   },
 };
 
-const CAT_LABELS = { hotel: "Unterkunft", shop: "Einkaufen", park: "Parkplatz", other: "Sonstiges" };
+const CAT_LABELS = {
+  hotel: "Unterkunft",
+  shop: "Einkaufen",
+  park: "Parkplatz",
+  beach: "Strand",
+  ferry: "Fähre",
+  waterpark: "Wasserpark",
+  other: "Sonstiges",
+};
+
+let saveMode = "here";
+let pendingSaveCoords = null;
 
 // ── Init ──
 
@@ -77,7 +88,13 @@ function bindButtons() {
   $("btn-map-confirm-cancel").onclick = () => { pendingMapDest = null; closeModal("modal-map-confirm"); };
   $("btn-map-confirm-go").onclick = () => confirmMapDestinationGo();
   $("btn-favorites").onclick = () => { openFavorites(); openModal("modal-favorites"); };
-  $("btn-save-fav").onclick = () => openModal("modal-save");
+  $("btn-save-fav").onclick = () => openSaveModal();
+  $("save-mode-here").onclick = () => setSaveMode("here");
+  $("save-mode-address").onclick = () => setSaveMode("address");
+  $("save-address-check").onclick = () => checkSaveAddress();
+  $("save-address").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkSaveAddress();
+  });
   $("btn-fuel").onclick = () => showPoi("fuel");
   $("btn-rest").onclick = () => showPoi("rest");
   $("btn-stop-nav").onclick = stopNavigation;
@@ -776,20 +793,102 @@ async function openFavorites() {
 
 async function saveFavorite() {
   const name = $("save-name").value.trim();
-  if (!name || !lastGps?.latitude) return;
+  if (!name) {
+    $("save-status").textContent = "Bitte einen Namen eingeben.";
+    return;
+  }
+
+  let lat, lon;
+
+  if (saveMode === "here") {
+    if (!lastGps?.latitude) {
+      $("save-status").textContent = "Kein GPS-Signal – nutze „Mit Adresse“ oder warte auf GPS.";
+      return;
+    }
+    lat = lastGps.latitude;
+    lon = lastGps.longitude;
+  } else {
+    if (!pendingSaveCoords) {
+      $("save-status").textContent = "Bitte zuerst „Adresse prüfen“ tippen.";
+      return;
+    }
+    lat = pendingSaveCoords.lat;
+    lon = pendingSaveCoords.lon;
+  }
 
   await fetch("/api/favorites", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name, lat: lastGps.latitude, lon: lastGps.longitude,
+      name,
+      lat,
+      lon,
       category: $("save-category").value,
     }),
   });
 
-  $("save-name").value = "";
+  resetSaveModal();
   closeModal("modal-save");
   loadFavoritesOnMap();
+  showInfoBanner(`Gespeichert: ${name}`);
+}
+
+function openSaveModal() {
+  resetSaveModal();
+  setSaveMode("here");
+  openModal("modal-save");
+}
+
+function resetSaveModal() {
+  $("save-name").value = "";
+  $("save-address").value = "";
+  $("save-address-result").textContent = "";
+  $("save-status").textContent = "";
+  pendingSaveCoords = null;
+}
+
+function setSaveMode(mode) {
+  saveMode = mode;
+  $("save-mode-here").classList.toggle("active", mode === "here");
+  $("save-mode-address").classList.toggle("active", mode === "address");
+  $("save-panel-here").classList.toggle("hidden", mode !== "here");
+  $("save-panel-address").classList.toggle("hidden", mode !== "address");
+  $("save-status").textContent = "";
+}
+
+async function checkSaveAddress() {
+  const query = $("save-address").value.trim();
+  if (!query) return;
+
+  $("save-address-result").textContent = "Suche …";
+  $("save-status").textContent = "";
+  pendingSaveCoords = null;
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+      { headers: { "Accept-Language": "de" } }
+    );
+    const results = await res.json();
+    if (!results.length) {
+      $("save-address-result").textContent = "Adresse nicht gefunden.";
+      return;
+    }
+
+    const hit = results[0];
+    pendingSaveCoords = {
+      lat: parseFloat(hit.lat),
+      lon: parseFloat(hit.lon),
+      label: hit.display_name,
+    };
+    $("save-address-result").textContent = `✓ ${hit.display_name}`;
+
+    if (!$("save-name").value.trim() && hit.name) {
+      $("save-name").value = hit.name;
+    }
+  } catch {
+    $("save-address-result").textContent = "Fehler bei der Suche. Internet prüfen.";
+  }
 }
 
 window.deleteFavorite = async (id) => {
