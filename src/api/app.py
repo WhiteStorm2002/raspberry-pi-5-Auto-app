@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -158,6 +161,39 @@ async def delete_favorite(item_id: str) -> dict[str, Any]:
     if not favorites_service.delete(item_id):
         raise HTTPException(status_code=404, detail="Favorit nicht gefunden")
     return {"ok": True}
+
+
+@app.post("/api/shutdown/app")
+async def shutdown_app() -> dict[str, bool]:
+    """Beendet den App-Server (Browser schließt sich über launch.sh)."""
+
+    async def _stop() -> None:
+        await asyncio.sleep(0.4)
+        os.kill(os.getpid(), signal.SIGINT)
+
+    asyncio.create_task(_stop())
+    return {"ok": True}
+
+
+@app.post("/api/shutdown/system")
+async def shutdown_system() -> dict[str, Any]:
+    """Fährt den Raspberry Pi sauber herunter (sudo ohne Passwort nötig)."""
+    commands = [
+        ["sudo", "systemctl", "poweroff"],
+        ["sudo", "shutdown", "-h", "now"],
+    ]
+
+    for command in commands:
+        try:
+            subprocess.Popen(command)
+            return {"ok": True, "message": "Pi fährt herunter …"}
+        except Exception:
+            continue
+
+    raise HTTPException(
+        status_code=500,
+        detail="Herunterfahren fehlgeschlagen. Bitte install-pi.sh erneut ausführen.",
+    )
 
 
 @app.websocket("/ws")

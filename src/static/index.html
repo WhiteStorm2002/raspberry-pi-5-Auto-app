@@ -58,6 +58,11 @@
         <button class="btn" id="btn-fuel">⛽ Tankstellen</button>
         <button class="btn" id="btn-rest">🅿️ Rastplätze</button>
         <button class="btn btn-danger hidden" id="btn-stop-nav">✕ Navigation beenden</button>
+
+        <div class="side-panel-bottom">
+          <button class="btn" id="btn-quit-app">🚪 App beenden</button>
+          <button class="btn btn-danger" id="btn-shutdown-pi">⏻ Pi ausschalten</button>
+        </div>
       </aside>
     </div>
   </div>
@@ -102,6 +107,31 @@
         <button class="btn" id="btn-save-cancel">Abbrechen</button>
         <button class="btn btn-primary" id="btn-save-confirm">Speichern</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: App beenden -->
+  <div class="modal hidden" id="modal-quit">
+    <div class="modal-content">
+      <h2>App beenden?</h2>
+      <p class="hint">Reise-Navi wird geschlossen. Du kommst zurück zum Pi-Desktop.</p>
+      <div class="modal-actions">
+        <button class="btn" id="btn-quit-cancel">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-quit-confirm">App beenden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Pi ausschalten -->
+  <div class="modal hidden" id="modal-shutdown">
+    <div class="modal-content">
+      <h2>Pi ausschalten?</h2>
+      <p class="hint">Der Raspberry Pi fährt sauber herunter. Erst danach vom Strom trennen.</p>
+      <div class="modal-actions">
+        <button class="btn" id="btn-shutdown-cancel">Abbrechen</button>
+        <button class="btn btn-danger" id="btn-shutdown-confirm">Jetzt ausschalten</button>
+      </div>
+      <p class="hint hidden" id="shutdown-status"></p>
     </div>
   </div>
 

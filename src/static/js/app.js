@@ -60,6 +60,12 @@ function bindButtons() {
   $("btn-fuel").onclick = () => showPoi("fuel");
   $("btn-rest").onclick = () => showPoi("rest");
   $("btn-stop-nav").onclick = stopNavigation;
+  $("btn-quit-app").onclick = () => openModal("modal-quit");
+  $("btn-quit-cancel").onclick = () => closeModal("modal-quit");
+  $("btn-quit-confirm").onclick = quitApp;
+  $("btn-shutdown-pi").onclick = () => openModal("modal-shutdown");
+  $("btn-shutdown-cancel").onclick = () => closeModal("modal-shutdown");
+  $("btn-shutdown-confirm").onclick = shutdownPi;
 
   $("btn-dest-cancel").onclick = () => closeModal("modal-destination");
   $("btn-dest-search").onclick = searchDestination;
@@ -407,6 +413,34 @@ window.deleteFavorite = async (id) => {
 };
 
 window.startNavigationTo = startNavigationTo;
+
+// ── App beenden / Pi ausschalten ──
+
+async function quitApp() {
+  closeModal("modal-quit");
+  try {
+    await fetch("/api/shutdown/app", { method: "POST" });
+  } catch { /* Server beendet sich */ }
+  window.close();
+  document.body.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:1.4rem;color:#e8edf7;background:#0b0f16">App beendet – Fenster schließen</div>';
+}
+
+async function shutdownPi() {
+  $("shutdown-status").textContent = "Pi fährt herunter …";
+  $("shutdown-status").classList.remove("hidden");
+  $("btn-shutdown-confirm").disabled = true;
+
+  try {
+    const res = await fetch("/api/shutdown/system", { method: "POST" });
+    if (!res.ok) throw new Error("failed");
+    document.body.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:1.4rem;color:#e8edf7;background:#0b0f16;text-align:center;padding:24px">⏻ Pi fährt herunter …<br><br><span style="font-size:1rem;color:#8b95a8">Erst vom Strom trennen, wenn die LEDs aus sind.</span></div>';
+  } catch {
+    $("shutdown-status").textContent = "Fehler – bitte install-pi.sh erneut ausführen.";
+    $("btn-shutdown-confirm").disabled = false;
+  }
+}
 
 // ── Helpers ──
 

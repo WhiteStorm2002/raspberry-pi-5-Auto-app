@@ -10,7 +10,7 @@ sudo apt update
 sudo apt install -y python3 python3-venv python3-pip gpsd gpsd-clients chromium-browser
 
 echo "GPS-Daemon konfigurieren (VK-162) …"
-if ! grep -q "DEVICES=\"/dev/ttyACM0\"" /etc/default/gpsd 2>/dev/null; then
+if ! grep -q 'DEVICES="/dev/ttyACM0"' /etc/default/gpsd 2>/dev/null; then
   sudo bash -c 'cat > /etc/default/gpsd << EOF
 START_DAEMON="true"
 DEVICES="/dev/ttyACM0"
@@ -18,6 +18,13 @@ GPSD_OPTIONS="-n"
 EOF'
   sudo systemctl enable gpsd
   sudo systemctl restart gpsd
+fi
+
+echo "Herunterfahren ohne Passwort erlauben …"
+SUDOERS_FILE="/etc/sudoers.d/reise-navi-shutdown"
+if [[ ! -f "$SUDOERS_FILE" ]]; then
+  echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff, /sbin/shutdown" | sudo tee "$SUDOERS_FILE" >/dev/null
+  sudo chmod 440 "$SUDOERS_FILE"
 fi
 
 echo "Python-Umgebung einrichten …"
