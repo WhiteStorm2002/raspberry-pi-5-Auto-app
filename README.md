@@ -39,6 +39,40 @@ chmod +x scripts/*.sh DEINSTALLIEREN.sh
 ./scripts/install-pi.sh
 ```
 
+## Update (für bestehende Installation)
+
+Wenn du bereits eine ältere Version installiert hast und auf die **neueste Version** updaten willst:
+
+```bash
+cd ~/raspberry-pi-5-Auto-app
+
+# Lokale Änderungen an Skripten verwerfen (behebt git-pull-Fehler)
+git restore scripts/install-pi.sh scripts/launch.sh
+
+# Falls „git restore" nicht verfügbar ist (älteres Git):
+# git checkout -- scripts/install-pi.sh scripts/launch.sh
+
+# Neueste Version von GitHub holen
+git pull
+
+# Abhängigkeiten & Desktop-Einträge aktualisieren
+chmod +x scripts/*.sh DEINSTALLIEREN.sh
+./scripts/install-pi.sh
+```
+
+**Hinweise zum Update:**
+- Deine **Einstellungen** (`config/config.yaml`) und **Favoriten** (`data/favorites.json`) bleiben erhalten
+- Die App danach wie gewohnt über das Desktop-Symbol **Reise-Navi** starten
+- Bei Fehlermeldungen beim Pull: zuerst `git restore` ausführen, dann erneut `git pull`
+
+**Typische Fehlermeldung ohne `git restore`:**
+```
+Fehler: Ihre lokalen Änderungen in den folgenden Dateien würden durch den Merge überschrieben werden:
+  scripts/install-pi.sh
+  scripts/launch.sh
+```
+→ Dann die Befehle oben der Reihe nach ausführen.
+
 ## Bedienung
 
 | Button | Funktion |
